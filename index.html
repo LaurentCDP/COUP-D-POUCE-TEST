@@ -369,8 +369,10 @@ let CFG={...CFG_DEF};
 const CODES_DEF={'Laurent':'LB','Lauren':'LB','Laura':'LR','Denis':'DN','Mehret':'MH','Cyprien':'CP','Wendy':'WD','Tom':'TM','Christine':'CH','Christopher':'CR','Mairi':'MR','Céline':'CL','Peggy':'PG'};
 let CODES={...CODES_DEF};
 
-// ── FIREBASE REST API (pas de SDK, fonctionne dans Brave) ──
-const FB_URL='https://cdptest-55f41-default-rtdb.europe-west1.firebasedatabase.app/data';
+// ── JSONBIN SYNC ──
+const JB_BIN='69c10e22aa77b81da90e4daa';
+const JB_KEY='$2a$10$RfMev.tvf7uCmbBDJ9fuQ..mBOY5KPBAodSW5/tdRd5WBU/lgtN42';
+const JB_URL=`https://api.jsonbin.io/v3/b/${JB_BIN}`;
 
 function showSync(msg,ok){
   const el=document.getElementById('sync-indicator');
@@ -382,9 +384,9 @@ function showSync(msg,ok){
 function fbSave(){
   showSync('🔄 Sync...',false);
   localStorage.setItem('cdp3',JSON.stringify(S));
-  fetch(FB_URL+'.json',{
+  fetch(JB_URL,{
     method:'PUT',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
     body:JSON.stringify({f:S.f,s:S.s,py:S.py})
   }).then(r=>r.ok?showSync('☁️ Synchronisé',true):showSync('⚠️ Erreur sync',false))
     .catch(()=>showSync('📵 Hors ligne',false));
@@ -392,15 +394,17 @@ function fbSave(){
 
 function fbLoad(callback){
   showSync('🔄 Chargement...',false);
-  fetch(FB_URL+'.json')
+  fetch(JB_URL+'/latest',{
+    headers:{'X-Master-Key':JB_KEY}
+  })
     .then(r=>r.json())
-    .then(data=>{
-      if(data&&data.f){
+    .then(res=>{
+      const data=res.record||{};
+      if(data&&data.f&&data.f.length){
         S.f=data.f||[];S.s=data.s||{};S.py=data.py||{};
         localStorage.setItem('cdp3',JSON.stringify(S));
         showSync('☁️ Synchronisé',true);
       } else {
-        // Première utilisation
         const sv=localStorage.getItem('cdp3');
         if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};}catch(e){}
         if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
@@ -410,7 +414,6 @@ function fbLoad(callback){
       callback();
     })
     .catch(()=>{
-      // Pas de connexion : localStorage
       const sv=localStorage.getItem('cdp3');
       if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};}catch(e){}
       if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
