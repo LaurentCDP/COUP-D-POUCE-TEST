@@ -760,8 +760,8 @@ function effSaisie(){
 function rFact(){
   const m=parseInt(document.getElementById('f-mois').value),a=parseInt(document.getElementById('f-an').value);
   const key=m+'_'+a;
-  // Filtrer les saisies valides avec une famille existante et des heures > 0
-  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
+    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   const c=document.getElementById('fl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture pour ce mois.<br>Allez dans Saisie pour entrer les heures.</p></div>';return;}
   c.innerHTML=ss.map(s=>{
@@ -913,7 +913,8 @@ function rSuivi(){
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
   const key=m+'_'+a;
-  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
+    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   let tT=0,tP=0,nP=0;
   ss.forEach(s=>{const t=sMontant(s);tT+=t;const py=S.py[s.num];if(py&&py.st==='payé'){tP+=t;nP++;}});
   document.getElementById('suivi-stats').innerHTML=`
@@ -935,7 +936,9 @@ function rSuiviImpaye(){
   let impayees=[];
   for(let m=1;m<=12;m++){
     const key=m+'_'+a;
-    (S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0).forEach(s=>{
+    (S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
+      .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'))
+      .forEach(s=>{
       const py=S.py[s.num]||{};
       if(py.st!=='payé') impayees.push({s,m,a});
     });
