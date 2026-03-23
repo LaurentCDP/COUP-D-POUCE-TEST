@@ -123,7 +123,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <h1>🌿 Coup d'Pouce</h1>
     <div style="font-size:.7rem;opacity:.75;margin-top:1px;">Gestion facturation</div>
   </div>
-  <div id="sync-indicator" style="font-size:.72rem;font-weight:600;color:var(--vc);">🔄 Chargement...</div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button onclick="rafraichir()" style="background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:5px 11px;color:white;font-size:.8rem;font-weight:600;cursor:pointer;">🔄</button>
+    <div id="sync-indicator" style="font-size:.72rem;font-weight:600;color:var(--vc);">🔄 Chargement...</div>
+  </div>
 </header>
 
 <div class="scroll">
@@ -570,6 +573,14 @@ function init(){
 }
 function save(){fbSave();}
 
+function rafraichir(){
+  fbLoad(()=>{
+    rSaisie();
+    rFact();
+    rSuivi();
+  });
+}
+
 function showPage(id,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));
@@ -602,8 +613,13 @@ function rSaisie(){
   const q=(document.getElementById('ss').value||'').toLowerCase();
   let fams=S.f.map((f,idx)=>({f,idx}));
   if(q)fams=fams.filter(({f})=>f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q)||(f.i||'').toLowerCase().includes(q));
-  // Toujours trier : familles avec heures en premier
-  fams.sort((a,b)=>{const sa=S.s[key].find(s=>s.fi===a.idx),sb=S.s[key].find(s=>s.fi===b.idx);return ((sb&&sb.h>0)?1:0)-((sa&&sa.h>0)?1:0);});
+  // Tri : alphabétique dans les deux groupes (avec heures en premier)
+  fams.sort((a,b)=>{
+    const sa=S.s[key].find(s=>s.fi===a.idx),sb=S.s[key].find(s=>s.fi===b.idx);
+    const ha=sa&&sTotal(sa)>0?1:0,hb=sb&&sTotal(sb)>0?1:0;
+    if(hb!==ha)return hb-ha;
+    return a.f.n.localeCompare(b.f.n,'fr');
+  });
 
   // Total mensuel
   let nb=0,tot=0,hMois=0;
