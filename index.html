@@ -142,8 +142,8 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
     </div>
     <div class="srow" style="grid-template-columns:1fr 1fr;">
-      <div class="sbox"><div class="v" id="st-tot">0 €</div><div class="l">Total du mois</div></div>
-      <div class="sbox g"><div class="v" id="st-an">0 €</div><div class="l">Total annuel</div></div>
+      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
+      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
     </div>
     <div class="search"><input type="text" id="ss" placeholder="Rechercher une famille..." oninput="rSaisie()"></div>
     <div id="sl"></div>
@@ -562,6 +562,8 @@ function init(){
 
   const m=now.getMonth()+1;
   ['s-mois','f-mois','p-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
+  // Syncer aussi l'année sur tous les sélecteurs mois
+  ['f-an','p-an','p-an-imp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
   // Charger depuis Firebase puis afficher
   fbLoad(()=>rSaisie());
@@ -604,18 +606,20 @@ function rSaisie(){
   fams.sort((a,b)=>{const sa=S.s[key].find(s=>s.fi===a.idx),sb=S.s[key].find(s=>s.fi===b.idx);return ((sb&&sb.h>0)?1:0)-((sa&&sa.h>0)?1:0);});
 
   // Total mensuel
-  let nb=0,tot=0;
-  S.f.forEach((f,idx)=>{const s=S.s[key].find(s=>s.fi===idx);if(s&&sTotal(s)>0){nb++;tot+=sMontant(s);}});
+  let nb=0,tot=0,hMois=0;
+  S.f.forEach((f,idx)=>{const s=S.s[key].find(s=>s.fi===idx);if(s&&sTotal(s)>0){nb++;tot+=sMontant(s);hMois+=sTotal(s);}});
 
   // Total annuel
-  let totAn=0;
+  let totAn=0,hAn=0;
   for(let m=1;m<=12;m++){
     const k=m+'_'+annee;
-    (S.s[k]||[]).forEach(s=>{totAn+=sMontant(s);});
+    (S.s[k]||[]).forEach(s=>{totAn+=sMontant(s);hAn+=sTotal(s);});
   }
 
   document.getElementById('st-tot').textContent=tot.toFixed(0)+' €';
   document.getElementById('st-an').textContent=totAn.toFixed(0)+' €';
+  document.getElementById('st-h-mois').textContent=hMois>0?hMois+'h':'';
+  document.getElementById('st-h-an').textContent=hAn>0?hAn+'h':'';
 
   const c=document.getElementById('sl');
   if(!fams.length){c.innerHTML='<div class="empty"><div class="ei">🔍</div><p>Aucune famille trouvée</p></div>';return;}
@@ -946,7 +950,7 @@ function rSuiviImpaye(){
 function mkSuiviItem(s,f,tot,py,paye,m,a){
   const htot=sTotal(s);
   const interv=s.lignes&&s.lignes.length>1?s.lignes.map(l=>l.i).join(', '):s.i||'';
-  return`<div class="suivi-item ${paye?'paye':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div>${paye?`<div class="sdet" style="color:var(--vc);">✅ ${py.d?new Date(py.d).toLocaleDateString('fr-FR'):''} · ${py.m||''}</div>`:''}</div><div class="smnt">${tot} €</div></div><div class="sact">${!paye?`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 Saisir le paiement</button>`:`<button class="btn bd bxs" onclick="annPy('${s.num}')">↩️ Annuler le paiement</button>`}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;
+  return`<div class="suivi-item ${paye?'paye':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div>${paye?`<div class="sdet" style="color:var(--vc);">✅ ${py.d?new Date(py.d).toLocaleDateString('fr-FR'):''} · ${py.m||''}</div>`:''}</div><div class="smnt">${tot} €</div></div><div class="sact">${!paye?`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 Saisir le paiement</button>`:`<button class="btn bo bxs" onclick="annPy('${s.num}')" style="color:var(--danger);border-color:var(--danger);font-weight:700;">↩️ Annuler le paiement</button>`}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;
 }
 
 function openPy(num){curPayN=num;document.getElementById('py-d').value=new Date().toISOString().split('T')[0];document.getElementById('m-pay').classList.add('open');}
@@ -967,9 +971,9 @@ function expXLS(){
 function rFam(){
   const q=(document.getElementById('fs').value||'').toLowerCase();
   const c=document.getElementById('fal');
-  const fams=S.f.filter(f=>!q||f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q));
-  c.innerHTML=fams.map((f,i)=>{
-    const ri=S.f.indexOf(f);
+  const fams=[...S.f.map((f,ri)=>({f,ri}))].sort((a,b)=>a.f.n.localeCompare(b.f.n,'fr'));
+  const filtered=fams.filter(({f})=>!q||f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q));
+  c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
     return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''} · ${f.pr}€/h</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;${f.e?'color:var(--vc)':'color:#ccc'};">${f.e?'📧 '+f.e:'Pas d\'email'}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
   }).join('');
