@@ -739,15 +739,19 @@ function effSaisie(){
 // ── FACTURES ──
 function rFact(){
   const m=parseInt(document.getElementById('f-mois').value),a=parseInt(document.getElementById('f-an').value);
-  const key=m+'_'+a,ss=(S.s[key]||[]).filter(s=>sTotal(s)>0);
+  const key=m+'_'+a;
+  // Filtrer les saisies valides avec une famille existante et des heures > 0
+  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
   const c=document.getElementById('fl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture pour ce mois.<br>Allez dans Saisie pour entrer les heures.</p></div>';return;}
   c.innerHTML=ss.map(s=>{
-    const f=S.f[s.fi],tot=sMontant(s).toFixed(2);
+    const f=S.f[s.fi];
+    if(!f)return ''; // sécurité
+    const tot=sMontant(s).toFixed(2);
     const interv=s.lignes&&s.lignes.length>1?s.lignes.map(l=>l.i).join(', '):s.i||'';
     const py=S.py[s.num],paye=py&&py.st==='payé';
     return`<div class="fact-item" onclick="voirF(${s.fi},${m},${a})"><div class="fi-info"><div class="fi-nom">${f.n} ${f.p}</div><div class="fi-sub">${s.num||'—'} · ${interv} · ${sTotal(s)}h</div></div><div class="fi-right"><div class="fi-mnt">${tot} €</div><span class="badge ${paye?'bvert':'borg'}">${paye?'payé':'en attente'}</span></div></div>`;
-  }).join('');
+  }).filter(Boolean).join('');
 }
 
 function voirF(fi,m,a){
@@ -888,7 +892,8 @@ function setVueSuivi(mode){
 function rSuivi(){
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
-  const key=m+'_'+a,ss=(S.s[key]||[]).filter(s=>sTotal(s)>0);
+  const key=m+'_'+a;
+  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
   let tT=0,tP=0,nP=0;
   ss.forEach(s=>{const t=sMontant(s);tT+=t;const py=S.py[s.num];if(py&&py.st==='payé'){tP+=t;nP++;}});
   document.getElementById('suivi-stats').innerHTML=`
@@ -898,18 +903,19 @@ function rSuivi(){
   const c=document.getElementById('pl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">💰</div><p>Aucune facture ce mois-ci</p></div>';return;}
   c.innerHTML=ss.map(s=>{
-    const f=S.f[s.fi],tot=sMontant(s).toFixed(2),py=S.py[s.num]||{},paye=py.st==='payé';
+    const f=S.f[s.fi];
+    if(!f)return '';
+    const tot=sMontant(s).toFixed(2),py=S.py[s.num]||{},paye=py.st==='payé';
     return mkSuiviItem(s,f,tot,py,paye,m,a);
-  }).join('');
+  }).filter(Boolean).join('');
 }
 
 function rSuiviImpaye(){
   const a=parseInt(document.getElementById('p-an-imp').value);
-  // Collecter toutes les factures impayées de l'année
   let impayees=[];
   for(let m=1;m<=12;m++){
     const key=m+'_'+a;
-    (S.s[key]||[]).filter(s=>sTotal(s)>0).forEach(s=>{
+    (S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0).forEach(s=>{
       const py=S.py[s.num]||{};
       if(py.st!=='payé') impayees.push({s,m,a});
     });
@@ -922,22 +928,25 @@ function rSuiviImpaye(){
     c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Aucune facture impayée en '+a+' !</p></div>';
     return;
   }
-  // Grouper par mois pour la lisibilité
   let html='';
   for(let m=1;m<=12;m++){
     const lignes=impayees.filter(x=>x.m===m);
     if(!lignes.length)continue;
     html+=`<div style="font-size:.75rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;padding:8px 2px 4px;">${MN[m]}</div>`;
     html+=lignes.map(({s,m,a})=>{
-      const f=S.f[s.fi],tot=sMontant(s).toFixed(2),py={};
+      const f=S.f[s.fi];
+      if(!f)return '';
+      const tot=sMontant(s).toFixed(2),py={};
       return mkSuiviItem(s,f,tot,py,false,m,a);
-    }).join('');
+    }).filter(Boolean).join('');
   }
   c.innerHTML=html;
 }
 
 function mkSuiviItem(s,f,tot,py,paye,m,a){
-  return`<div class="suivi-item ${paye?'paye':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${s.i} · ${s.h}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div>${paye?`<div class="sdet" style="color:var(--vc);">✅ ${py.d?new Date(py.d).toLocaleDateString('fr-FR'):''} · ${py.m||''}</div>`:''}</div><div class="smnt">${tot} €</div></div><div class="sact">${!paye?`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 Saisir le paiement</button>`:`<button class="btn bd bxs" onclick="annPy('${s.num}')">↩️ Annuler le paiement</button>`}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;
+  const htot=sTotal(s);
+  const interv=s.lignes&&s.lignes.length>1?s.lignes.map(l=>l.i).join(', '):s.i||'';
+  return`<div class="suivi-item ${paye?'paye':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div>${paye?`<div class="sdet" style="color:var(--vc);">✅ ${py.d?new Date(py.d).toLocaleDateString('fr-FR'):''} · ${py.m||''}</div>`:''}</div><div class="smnt">${tot} €</div></div><div class="sact">${!paye?`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 Saisir le paiement</button>`:`<button class="btn bd bxs" onclick="annPy('${s.num}')">↩️ Annuler le paiement</button>`}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;
 }
 
 function openPy(num){curPayN=num;document.getElementById('py-d').value=new Date().toISOString().split('T')[0];document.getElementById('m-pay').classList.add('open');}
