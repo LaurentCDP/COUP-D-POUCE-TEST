@@ -620,8 +620,11 @@ function codeI(nom){
   for(const[k,v]of Object.entries(CODES))if(n.toLowerCase().startsWith(k.toLowerCase()))return v;
   return n.substring(0,2).toUpperCase();
 }
-function genN(idx,m,a,seq){return`${a}/${String(m).padStart(2,'0')}/${String(seq).padStart(2,'0')}`;}
-
+function genN(idx,m,a,seq){
+  // Numéro unique : année/mois/index_famille/séquence
+  // L'index famille garantit l'unicité même si deux familles ont le même seq
+  return`${a}/${String(m).padStart(2,'0')}/${String(idx).padStart(3,'0')}`;
+}
 // ── SAISIE ──
 function rSaisie(){
   const key=gk();
@@ -822,7 +825,7 @@ function voirF(fi,m,a){
       <tr><td colspan="6" style="text-align:left;font-size:7.5pt;color:#555;padding:5px 4px;font-style:italic;">TVA non applicable, art. 293B du CGI</td></tr>
     </tbody></table>
     <div class="ifooter"><div class="ivir">Merci de préciser dans le virement : ${f.n} + ${MN[m]}</div>IBAN : ${CFG.iban}</div>
-    <div style="text-align:center;margin-top:14px;"><img src="${SAP_LOGO}" style="height:50px;opacity:.9;"></div>`;
+    <div style="text-align:center;margin-top:16px;padding-top:10px;border-top:1px solid #eee;"><img src="${SAP_LOGO}" style="height:48px;"></div>`;
   document.getElementById('btn-pdf').style.display='block';
   document.getElementById('btn-mail').style.display=f.e?'block':'none';
   document.getElementById('mail-tip').style.display='block';
@@ -890,9 +893,9 @@ function mkPDF(s,f,m,a,tot){
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
   y+=14;
-  // LOGO SAP centré en bas
+  // LOGO SAP centré en bas de page (position absolue)
   try{
-    doc.addImage(SAP_LOGO,'WEBP',81,y,48,0);
+    doc.addImage(SAP_LOGO,'WEBP',76,265,60,0);
   }catch(e){console.warn('Logo SAP non chargé');}
   return doc;
 }
