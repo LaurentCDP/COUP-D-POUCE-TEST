@@ -638,8 +638,32 @@ function init(){
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
-  // Charger depuis Firebase puis afficher
-  fbLoad(()=>rSaisie());
+  // Charger depuis localStorage immédiatement
+  const sv=localStorage.getItem('cdp3');
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
+  if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
+  rSaisie();
+  // Synchroniser avec JSONBin en arrière-plan
+  showSync('🔄 Sync...',false);
+  fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
+    .then(r=>r.json())
+    .then(res=>{
+      const remote=res.record||{};
+      if(remote&&remote.f&&remote.f.length){
+        const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
+        const remoteTs=remote.ts||0;
+        if(remoteTs>localTs){
+          S.f=remote.f;S.s=remote.s||{};
+          S.py={...(S.py||{}),...(remote.py||{})};
+          S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
+          localStorage.setItem('cdp3',JSON.stringify(S));
+          localStorage.setItem('cdp3_ts',String(remoteTs));
+          rSaisie();
+        }
+        showSync('☁️ Synchronisé',true);
+      } else {showSync('☁️ Synchronisé',true);fbSave();}
+    })
+    .catch(()=>showSync('📵 Hors ligne',true));
 }
 function save(){fbSave();}
 
