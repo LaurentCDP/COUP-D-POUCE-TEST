@@ -206,14 +206,18 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
         
       </select>
     </div>
-    <div class="srow" id="suivi-stats"></div>
+    <div class="srow" id="suivi-stats" style="grid-template-columns:1fr 1fr 1fr;"></div>
     <button class="btn bo bfull bsm" onclick="expXLS()">📤 Exporter pour Google Sheets</button>
     <div id="pl"></div>
   </div>
 
   <!-- PAGE PROFS -->
   <div class="page" id="pg-profs">
-    <div class="mbar">
+    <div style="display:flex;gap:8px;margin-bottom:11px;">
+      <button class="btn bv bsm" id="btn-vue-profs-mois" onclick="setVueProfs('mois')" style="flex:1;">📅 Par mois</button>
+      <button class="btn bo bsm" id="btn-vue-profs-imp" onclick="setVueProfs('impaye')" style="flex:1;">⚠️ Impayés profs</button>
+    </div>
+    <div id="profs-mois-bar" class="mbar">
       <select id="pr-mois" onchange="rProfs()">
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
         <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
@@ -222,11 +226,16 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
       <select id="pr-an" onchange="rProfs()" style="max-width:88px;"></select>
     </div>
+    <div id="profs-impaye-bar" class="mbar" style="display:none;">
+      <span style="font-size:.85rem;font-weight:600;color:var(--v);">⚠️ Profs impayés —</span>
+      <select id="pr-an-imp" onchange="rProfs()" style="max-width:88px;"></select>
+    </div>
     <div class="srow" style="grid-template-columns:1fr 1fr 1fr;">
       <div class="sbox"><div class="v" id="pr-tot-fam">0 €</div><div class="l">Encaissé familles</div></div>
       <div class="sbox o"><div class="v" id="pr-tot-prof">0 €</div><div class="l">Payé profs</div></div>
       <div class="sbox g"><div class="v" id="pr-marge">0 €</div><div class="l">Marge annuelle</div></div>
     </div>
+    <button class="btn bo bfull bsm" onclick="expProfsXLS()">📤 Exporter pour Google Sheets</button>
     <div id="profs-list"></div>
   </div>
 
@@ -411,7 +420,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="field"><label class="sl">Intervenant</label>
       <select id="mf-iv" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;"></select>
     </div>
-    <div class="field"><label class="sl">Prix par heure (€)</label><input type="number" id="mf-pr" value="35" min="0" step="0.5"></div>
+    <div class="field"><label class="sl">Commentaires</label><input type="text" id="mf-pr" placeholder="ex: tarif spécial, frère/sœur..."></div>
     <input type="hidden" id="mf-idx">
     <div class="mbtns">
       <button class="btn bv" onclick="valFam()">💾 Sauvegarder</button>
@@ -452,7 +461,7 @@ function fbSave(){
   fetch(JB_URL,{
     method:'PUT',
     headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
-    body:JSON.stringify({f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},ts:payload.ts})
+    body:JSON.stringify({f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts:payload.ts})
   }).then(r=>r.ok?showSync('☁️ Synchronisé',true):showSync('⚠️ Erreur sync',false))
     .catch(()=>showSync('📵 Hors ligne',false));
 }
@@ -460,7 +469,7 @@ function fbSave(){
 function fbLoad(callback){
   // 1. Afficher immédiatement depuis localStorage
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
   if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
   try{callback();}catch(e){console.error('local callback:',e);}
   // 2. Synchroniser en arrière-plan
@@ -506,8 +515,9 @@ function sTotal(s){
 }
 // Helper: total amount of a saisie
 function sMontant(s){
-  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||35),0);
-  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||35);
+  const pxFam=CFG.prixFamille||35;
+  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||pxFam),0);
+  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||pxFam);
 }
 // Helper: build intervenant select options
 function selectInterv(selected=''){
@@ -597,7 +607,7 @@ const FI=[
   {n:"PASSET",p:"Catherine",rue:"471 route d'aubaygues",cp:"34700",vil:"SOUBES",e:"",tel:"06 43 22 44 46",i:"Denis",pr:35},
 ];
 
-let S={f:[],s:{},py:{},pyp:{}};
+let S={f:[],s:{},py:{},pyp:{},pyp_parts:{}};
 let curIdx=null,curPayN=null,curAp=null;
 
 function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
@@ -614,7 +624,7 @@ function init(){
   // Remplir les selects d'année dynamiquement (100 ans)
   const now=new Date();
   const curA=now.getFullYear();
-  const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','pr-an'];
+  const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','pr-an','pr-an-imp'];
   anneeIds.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
@@ -633,7 +643,7 @@ function init(){
 
   // Charger depuis localStorage immédiatement
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
   if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
   rSaisie();
   // Synchroniser avec JSONBin en arrière-plan
@@ -755,6 +765,9 @@ function openS(idx){
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
   renderLignes(lignes,f);
   const ppEl=document.getElementById('ms-pp');if(ppEl)ppEl.value=s.pp||CFG.prixProf||28;
+  // Also set default prix famille
+  const lignesEl=document.getElementById('ms-lignes');
+  if(lignesEl){lignesEl.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.value||el.value==='35')el.value=CFG.prixFamille||35;});}
   document.getElementById('m-saisie').classList.add('open');
   setTimeout(()=>{const el=document.getElementById('ms-lignes').querySelector('input[type=number]');if(el)el.focus();},300);
 }
@@ -769,9 +782,9 @@ function renderLignes(lignes,f){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
-        <div class="field"><label class="sl">Prix/h (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||35}" min="0" step="0.5"></div>
+        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5"></div>
       </div>
-      <div class="field"><label class="sl">Dates des cours</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
+      <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
     </div>`).join('');
 }
 
@@ -796,9 +809,9 @@ function ajouterLigne(){
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
-      <div class="field"><label class="sl">Prix/h (€)</label><input type="number" id="ms-p-${n}" value="${f.pr||35}" min="0" step="0.5"></div>
+      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
     </div>
-    <div class="field"><label class="sl">Dates des cours</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
+    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
   </div>`;
   c.appendChild(div.firstElementChild);
 }
@@ -919,7 +932,7 @@ function voirF(fi,m,a){
     </div>
     <div style="text-align:right;font-size:7.5pt;color:#888;">DATE : ${today}</div>
     <div class="ititre">FACTURE N° ${s.num||'—'}</div>
-    <table class="itable"><thead><tr><th>Prestations</th><th>Heures</th><th>Intervenant</th><th>Mois</th><th>Prix/h</th><th>Total</th></tr></thead>
+    <table class="itable"><thead><tr><th>Prestations</th><th>Heures</th><th>Intervenant</th><th>Mois</th><th>Prix</th><th>Total</th></tr></thead>
     <tbody>
       ${dataRows}
       <tr class="tot"><td colspan="5" style="text-align:right;vertical-align:middle;"><strong>TOTAL</strong></td><td style="vertical-align:middle;"><strong>${tot} €</strong></td></tr>
@@ -969,7 +982,7 @@ function mkPDF(s,f,m,a,tot){
   const rh=9;
   doc.setFillColor(30,64,175);doc.rect(18,y,175,rh,'F');
   doc.setTextColor(255);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  ['Prestations','Nb h','Intervenant','Mois','Prix/h','Total'].forEach((h,i)=>doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]}));
+  ['Prestations','Nb h','Intervenant','Mois','Prix','Total'].forEach((h,i)=>doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]}));
   y+=rh;
   // Data rows — mois en gras
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h,pr:s.pr,d:s.d}];
@@ -1020,12 +1033,12 @@ function mkPDF(s,f,m,a,tot){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,257,52,0);
+    doc.addImage(pngData,'PNG',79,248,52,0);
   }catch(e){
     // Fallback texte si image échoue
   }
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,281,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,273,{align:'center'});
   return doc;
 }
 
@@ -1049,8 +1062,125 @@ function expToutPDF(){
 
 // ── PROFS ──
 let curPayProfKey=null;
+let vueProfs='mois';
+
+function setVueProfs(mode){
+  vueProfs=mode;
+  document.getElementById('btn-vue-profs-mois').className='btn bsm '+(mode==='mois'?'bv':'bo');
+  document.getElementById('btn-vue-profs-imp').className='btn bsm '+(mode==='impaye'?'bv':'bo');
+  document.getElementById('profs-mois-bar').style.display=mode==='mois'?'flex':'none';
+  document.getElementById('profs-impaye-bar').style.display=mode==='impaye'?'flex':'none';
+  if(mode==='impaye'){const el=document.getElementById('pr-an-imp');if(el)el.value=document.getElementById('pr-an').value;}
+  rProfs();
+}
+
+function expProfsXLS(){
+  const a=parseInt((document.getElementById('pr-an-imp')||document.getElementById('pr-an')).value);
+  const rows=[['Intervenant','Mois','Famille','Heures','Tarif','Total','Statut','Payé le','Moyen','Montant payé']];
+  for(let m=1;m<=12;m++){
+    const key=m+'_'+a;
+    const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+    const byProf={};
+    ss.forEach(s=>{
+      const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h}];
+      lignes.filter(l=>l.h>0).forEach(l=>{
+        if(!byProf[l.i||'?'])byProf[l.i||'?']=[];
+        byProf[l.i||'?'].push({s,l,fi:s.fi});
+      });
+    });
+    Object.entries(byProf).forEach(([nom,lignes])=>{
+      const prixProf=lignes[0]?.s?.pp||CFG.prixProf||28;
+      const profKey=nom+'_'+m+'_'+a;
+      const pyp=(S.pyp||{})[profKey]||{};
+      lignes.forEach(({l,fi})=>{
+        const f=S.f[fi];
+        rows.push([nom,MN[m],f?f.n:'',l.h,prixProf,((parseFloat(l.h)||0)*prixProf).toFixed(2),pyp.st||'en attente',pyp.d?new Date(pyp.d).toLocaleDateString('fr-FR'):'',pyp.moyen||'',pyp.montant||'']);
+      });
+    });
+  }
+  const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb,ws,'Profs '+a);XLSX.writeFile(wb,`Profs_CoupDPouce_${a}.xlsx`);
+}
+
+function buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf){
+  // Check if there are partial payments stored
+  const payments=(S.pyp_parts||{})[profKey]||[];
+  const totalPaid=payments.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+  const reste=(parseFloat(totalEur)-totalPaid).toFixed(2);
+  let html='';
+  if(payments.length){
+    payments.forEach((p,i)=>{
+      html+=`<div style="color:var(--vc);font-size:.78rem;margin-bottom:4px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.moyen||''} · ${p.montant} €
+        <button onclick="annPayProfPartiel('${profKey}',${i})" style="background:none;border:none;color:var(--danger);font-size:.75rem;cursor:pointer;font-weight:700;">↩️ Annuler (${p.montant} €)</button></div>`;
+    });
+  }
+  if(parseFloat(reste)>0.01){
+    html+=`<button class="btn bc bsm" onclick="openPayProf('${profKey}','${nom}',${reste})">💳 Saisir le paiement (${reste} €)</button>`;
+  }
+  return html;
+}
+
+function buildProfPayDone(profKey,pyp,totalEur,totalH,prixProf){
+  // Legacy single payment
+  return `<div style="color:var(--vc);font-size:.82rem;font-weight:700;margin-bottom:6px;">✅ Payé le ${pyp.d?new Date(pyp.d).toLocaleDateString('fr-FR'):''} · ${pyp.moyen||''} · ${pyp.montant||totalEur} €</div>
+    <button class="btn bxs" style="color:var(--danger);border:1.5px solid var(--danger);background:white;font-weight:700;" onclick="annPayProf('${profKey}')">↩️ Annuler le paiement (${pyp.montant||totalEur} €)</button>`;
+}
+
+function annPayProfPartiel(key,idx){
+  if(!confirm('Annuler ce paiement ?'))return;
+  if(S.pyp_parts&&S.pyp_parts[key]){
+    S.pyp_parts[key].splice(idx,1);
+    if(S.pyp_parts[key].length===0)delete S.pyp_parts[key];
+  }
+  // Also remove from S.pyp if no more parts
+  if(!(S.pyp_parts||{})[key])delete S.py[key];
+  save();rProfs();
+}
+
+function rProfsImpaye(){
+  const a=parseInt(document.getElementById('pr-an-imp').value);
+  const c=document.getElementById('profs-list');
+  let html='';
+  let totalImpaye=0;
+  for(let m=1;m<=12;m++){
+    const key=m+'_'+a;
+    const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+    const byProf={};
+    ss.forEach(s=>{
+      const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h}];
+      lignes.filter(l=>l.h>0).forEach(l=>{
+        const nom=l.i||'?';
+        if(!byProf[nom])byProf[nom]=[];
+        byProf[nom].push({s,l,fi:s.fi});
+      });
+    });
+    Object.entries(byProf).forEach(([nom,lignes])=>{
+      const prixProf=lignes[0]?.s?.pp||CFG.prixProf||28;
+      const totalH=lignes.reduce((acc,{l})=>acc+(parseFloat(l.h)||0),0);
+      const totalEur=(totalH*prixProf).toFixed(2);
+      const profKey=nom+'_'+m+'_'+a;
+      const pyp=(S.pyp||{})[profKey]||{};
+      if(pyp.st!=='payé'){
+        totalImpaye+=parseFloat(totalEur);
+        html+=`<div class="suivi-item att" style="margin-bottom:8px;">
+          <div class="stop"><div><div class="snom">👨‍🏫 ${nom} — ${MN[m]}</div>
+          <div class="sdet">${totalH}h × ${prixProf} € = ${totalEur} €</div></div>
+          <div class="smnt">${totalEur} €</div></div>
+          <div class="sact">${buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf)}</div>
+        </div>`;
+      }
+    });
+  }
+  // Stats
+  document.getElementById('pr-tot-fam').textContent='—';
+  document.getElementById('pr-tot-prof').textContent='—';
+  document.getElementById('pr-marge').textContent=totalImpaye.toFixed(0)+' €';
+  if(!html)c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Tous les profs sont payés !</p></div>';
+  else c.innerHTML=html;
+}
 
 function rProfs(){
+  if(vueProfs==='impaye'){rProfsImpaye();return;}
   const m=parseInt(document.getElementById('pr-mois').value);
   const a=parseInt(document.getElementById('pr-an').value);
   const key=m+'_'+a;
@@ -1106,9 +1236,8 @@ function rProfs(){
         <tbody>${lignes.map(({l,fi})=>{const f=S.f[fi];return`<tr><td style="padding:4px;">${f?f.n:''}</td><td style="padding:4px;text-align:center;">${l.h}h</td><td style="padding:4px;text-align:right;">${((parseFloat(l.h)||0)*prixProf).toFixed(2)} €</td></tr>`;}).join('')}</tbody>
       </table>
       ${paye
-        ?`<div style="color:var(--vc);font-size:.82rem;font-weight:700;margin-bottom:6px;">✅ Payé le ${pyp.d?new Date(pyp.d).toLocaleDateString('fr-FR'):''} · ${pyp.moyen||''}</div>
-           <button class="btn bxs" style="color:var(--danger);border:1.5px solid var(--danger);background:white;font-weight:700;" onclick="annPayProf('${profKey}')">↩️ Annuler le paiement</button>`
-        :`<button class="btn bc bsm" onclick="openPayProf('${profKey}','${nom}',${totalEur})">💳 Saisir le paiement (${totalEur} €)</button>`
+        ?buildProfPayDone(profKey,pyp,totalEur,totalH,prixProf)
+        :buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf)
       }
     </div>`;
   });
@@ -1126,8 +1255,14 @@ function openPayProf(key,nom,montant){
 function valPayProf(){
   if(!curPayProfKey)return;
   if(!S.pyp)S.pyp={};
+  if(!S.pyp_parts)S.pyp_parts={};
   const montant=parseFloat(document.getElementById('pyp-montant').value)||0;
-  S.pyp[curPayProfKey]={st:'payé',d:document.getElementById('pyp-d').value,moyen:document.getElementById('pyp-m').value,montant:montant.toFixed(2)};
+  const paiement={st:'payé',d:document.getElementById('pyp-d').value,moyen:document.getElementById('pyp-m').value,montant:montant.toFixed(2)};
+  // Add to partial payments list
+  if(!S.pyp_parts[curPayProfKey])S.pyp_parts[curPayProfKey]=[];
+  S.pyp_parts[curPayProfKey].push({d:paiement.d,moyen:paiement.moyen,montant:paiement.montant});
+  // Mark as payé in pyp (for marge calc)
+  S.pyp[curPayProfKey]=paiement;
   save();cm('m-pay-prof');rProfs();
 }
 
@@ -1258,7 +1393,7 @@ function rFam(){
   const filtered=fams.filter(({f})=>!q||f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q));
   c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
-    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''} · ${f.pr}€/h</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
+    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
   }).join('');
 }
 
@@ -1268,7 +1403,7 @@ function addFam(){
   // Populate intervenant select
   const sel=document.getElementById('mf-iv');
   sel.innerHTML=`<option value="">-- Choisir --</option>`+Object.keys(CODES).map(n=>`<option value="${n}">${n}</option>`).join('');
-  document.getElementById('mf-pr').value=35;document.getElementById('mf-idx').value='';
+  document.getElementById('mf-pr').value='';document.getElementById('mf-idx').value='';
   document.getElementById('mf-del').style.display='none';
   document.getElementById('m-fam').classList.add('open');
 }
@@ -1286,7 +1421,7 @@ function editFam(idx){
   // Populate and set intervenant select
   const sel=document.getElementById('mf-iv');
   sel.innerHTML=`<option value="">-- Choisir --</option>`+Object.keys(CODES).map(n=>`<option value="${n}" ${n===(f.i||'')?'selected':''}>${n}</option>`).join('');
-  document.getElementById('mf-pr').value=f.pr||35;
+  document.getElementById('mf-pr').value=f.com||'';
   document.getElementById('mf-idx').value=idx;
   document.getElementById('mf-del').style.display='block';
   document.getElementById('m-fam').classList.add('open');
@@ -1302,7 +1437,7 @@ function valFam(){
     e:document.getElementById('mf-e').value.trim(),
     tel:document.getElementById('mf-tel').value.trim(),
     i:document.getElementById('mf-iv').value.trim(),
-    pr:parseFloat(document.getElementById('mf-pr').value)||35
+    com:document.getElementById('mf-pr').value.trim()
   };
   const idx=document.getElementById('mf-idx').value;
   if(idx!=='')S.f[parseInt(idx)]=f;else S.f.push(f);
@@ -1511,6 +1646,9 @@ function saveCFG(){
   CFG.iban=document.getElementById('cfg-iban').value.trim()||CFG_DEF.iban;
   CFG.repNom=document.getElementById('cfg-rep-nom').value.trim();
   CFG.repTitre=document.getElementById('cfg-rep-titre').value.trim()||'Présidente';
+  CFG.adr2=document.getElementById('cfg-adr2').value.trim();
+  CFG.prixFamille=parseFloat(document.getElementById('cfg-prix-famille').value)||35;
+  CFG.prixProf=parseFloat(document.getElementById('cfg-prix-prof').value)||28;
   localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));
   alert('✅ Informations sauvegardées !');
 }
