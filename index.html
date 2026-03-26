@@ -465,49 +465,35 @@ function fbSave(){
 }
 
 function fbLoad(callback){
-  showSync('🔄 Chargement...',false);
-  const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),8000);
-  fetch(JB_URL+'/latest',{
-    headers:{'X-Master-Key':JB_KEY},
-    signal:ctrl.signal
-  })
+  // 1. Afficher immédiatement depuis localStorage
+  const sv=localStorage.getItem('cdp3');
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
+  if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
+  try{callback();}catch(e){console.error('local callback:',e);}
+  // 2. Synchroniser en arrière-plan
+  showSync('🔄 Sync...',false);
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>{ctrl.abort();showSync('📵 Local',true);},8000);
+  fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY},signal:ctrl.signal})
     .then(r=>r.json())
     .then(res=>{
+      clearTimeout(timer);
       const remote=res.record||{};
       if(remote&&remote.f&&remote.f.length){
-        // Fusionner : prendre les données les plus récentes
         const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
         const remoteTs=remote.ts||0;
-        if(remoteTs>=localTs){
-          // Remote plus récent : utiliser remote mais fusionner paiements locaux
-          S.f=remote.f||[];S.s=remote.s||{};
-          const localPy=S.py||{};
-          S.py={...localPy,...(remote.py||{})};
-          const localPyp=S.pyp||{};
-          S.pyp={...localPyp,...(remote.pyp||{})};
-        } else {
-          S.py={...(remote.py||{}),...S.py};
-          S.pyp={...(remote.pyp||{}),...(S.pyp||{})};
+        if(remoteTs>localTs){
+          S.f=remote.f;S.s=remote.s||{};
+          S.py={...(S.py||{}),...(remote.py||{})};
+          S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
+          localStorage.setItem('cdp3',JSON.stringify(S));
+          localStorage.setItem('cdp3_ts',String(remoteTs));
+          try{callback();}catch(e){console.error('remote callback:',e);}
         }
-        localStorage.setItem('cdp3',JSON.stringify(S));
-        localStorage.setItem('cdp3_ts',String(Math.max(localTs,remoteTs)));
         showSync('☁️ Synchronisé',true);
-      } else {
-        const sv=localStorage.getItem('cdp3');
-        if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
-        if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
-        showSync('☁️ Synchronisé',true);
-        fbSave();
-      }
-      try{callback();}catch(e){console.error('callback error:',e);}
+      } else {showSync('☁️ Synchronisé',true);fbSave();}
     })
-    .catch(()=>{
-      const sv=localStorage.getItem('cdp3');
-      if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
-      if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
-      showSync('📵 Hors ligne (local)',true);
-      try{callback();}catch(e){console.error('offline callback error:',e);}
-    });
+    .catch(()=>{clearTimeout(timer);showSync('📵 Hors ligne',true);});
 }
 
 // Helper: build address string from family object
