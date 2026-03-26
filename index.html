@@ -439,21 +439,23 @@ function showSync(msg,ok){
 
 function fbSave(){
   showSync('🔄 Sync...',false);
-  const payload={f:S.f,s:S.s,py:S.py,ts:Date.now()};
+  const payload={f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},ts:Date.now()};
   localStorage.setItem('cdp3',JSON.stringify(S));
   localStorage.setItem('cdp3_ts',String(payload.ts));
   fetch(JB_URL,{
     method:'PUT',
     headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
-    body:JSON.stringify(payload)
+    body:JSON.stringify({f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},ts:payload.ts})
   }).then(r=>r.ok?showSync('☁️ Synchronisé',true):showSync('⚠️ Erreur sync',false))
     .catch(()=>showSync('📵 Hors ligne',false));
 }
 
 function fbLoad(callback){
   showSync('🔄 Chargement...',false);
+  const ctrl=new AbortController();setTimeout(()=>ctrl.abort(),8000);
   fetch(JB_URL+'/latest',{
-    headers:{'X-Master-Key':JB_KEY}
+    headers:{'X-Master-Key':JB_KEY},
+    signal:ctrl.signal
   })
     .then(r=>r.json())
     .then(res=>{
@@ -465,19 +467,20 @@ function fbLoad(callback){
         if(remoteTs>=localTs){
           // Remote plus récent : utiliser remote mais fusionner paiements locaux
           S.f=remote.f||[];S.s=remote.s||{};
-          // Fusionner paiements : garder le plus complet
           const localPy=S.py||{};
           S.py={...localPy,...(remote.py||{})};
+          const localPyp=S.pyp||{};
+          S.pyp={...localPyp,...(remote.pyp||{})};
         } else {
-          // Local plus récent : garder local mais fusionner paiements remote
           S.py={...(remote.py||{}),...S.py};
+          S.pyp={...(remote.pyp||{}),...(S.pyp||{})};
         }
         localStorage.setItem('cdp3',JSON.stringify(S));
         localStorage.setItem('cdp3_ts',String(Math.max(localTs,remoteTs)));
         showSync('☁️ Synchronisé',true);
       } else {
         const sv=localStorage.getItem('cdp3');
-        if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};}catch(e){}
+        if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
         if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
         showSync('☁️ Synchronisé',true);
         fbSave();
@@ -486,7 +489,7 @@ function fbLoad(callback){
     })
     .catch(()=>{
       const sv=localStorage.getItem('cdp3');
-      if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};}catch(e){}
+      if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
       if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
       showSync('📵 Hors ligne (local)',true);
       callback();
@@ -681,7 +684,8 @@ function rSaisie(){
   const key=gk();
   const mois=gm(),annee=ga();
   if(!S.s[key])S.s[key]=[];
-  const q=(document.getElementById('ss').value||'').toLowerCase();
+  const q=(document.getElementById('ss')?.value||'').toLowerCase();
+  if(!document.getElementById('sl'))return; // page saisie supprimée
   let fams=S.f.map((f,idx)=>({f,idx}));
   if(q)fams=fams.filter(({f})=>f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q)||(f.i||'').toLowerCase().includes(q));
   // Tri : alphabétique dans les deux groupes (avec heures en premier)
