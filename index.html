@@ -125,6 +125,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <button onclick="rafraichir()" style="background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:5px 11px;color:white;font-size:.8rem;font-weight:600;cursor:pointer;">🔄</button>
+    <button onclick="showPage('reglages')" style="background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:5px 11px;color:white;font-size:.8rem;font-weight:600;cursor:pointer;">⚙️</button>
     <div id="sync-indicator" style="font-size:.72rem;font-weight:600;color:var(--vc);">🔄 Chargement...</div>
   </div>
 </header>
@@ -133,8 +134,27 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 
 
 
+  <!-- PAGE SAISIE -->
+  <div class="page active" id="pg-saisie">
+    <div class="mbar">
+      <select id="s-mois" onchange="onMC()">
+        <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
+        <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
+        <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
+        <option value="10">Octobre</option><option value="11">Novembre</option><option value="12">Décembre</option>
+      </select>
+      <select id="s-an" onchange="onMC()" style="max-width:88px;"></select>
+    </div>
+    <div class="srow" style="grid-template-columns:1fr 1fr;">
+      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
+      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
+    </div>
+    <div class="search"><input type="text" id="ss" placeholder="Rechercher une famille..." oninput="rSaisie()"></div>
+    <div id="sl"></div>
+  </div>
+
   <!-- PAGE FACTURES -->
-  <div class="page active" id="pg-factures">
+  <div class="page" id="pg-factures">
     <div class="mbar">
       <select id="f-mois" onchange="rFact()">
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
@@ -144,12 +164,6 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
       <select id="f-an" onchange="rFact()" style="max-width:88px;"></select>
     </div>
-    <div class="srow" style="grid-template-columns:1fr 1fr;">
-      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
-      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
-    </div>
-    <button class="btn bv bfull" onclick="ouvrirNouvelleFacture()">➕ Nouvelle facture</button>
-    <div class="search"><input type="text" id="ss" placeholder="Rechercher une famille..." oninput="rFact()"></div>
     <button class="btn bc bfull bsm" onclick="expToutPDF()">📥 Télécharger tous les PDF</button>
     <div id="fl"></div>
   </div>
@@ -290,11 +304,11 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 </div>
 
 <nav class="bnav">
-  <button class="on" onclick="showPage('factures',this)"><span class="i">🧾</span>Factures</button>
+  <button class="on" onclick="showPage('saisie',this)"><span class="i">📝</span>Saisie</button>
+  <button onclick="showPage('factures',this)"><span class="i">🧾</span>Factures</button>
   <button onclick="showPage('suivi',this)"><span class="i">💰</span>Paiements</button>
   <button onclick="showPage('profs',this)"><span class="i">👨‍🏫</span>Profs</button>
   <button onclick="showPage('familles',this)"><span class="i">👨‍👩‍👧</span>Familles</button>
-  <button onclick="showPage('reglages',this)"><span class="i">⚙️</span>Réglages</button>
 </nav>
 
 <!-- MODAL CODE INTERVENANT -->
@@ -607,12 +621,11 @@ const FI=[
 let S={f:[],s:{},py:{},pyp:{}};
 let curIdx=null,curPayN=null,curAp=null;
 
-function gm(){const el=document.getElementById('f-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
-function ga(){const el=document.getElementById('f-an');return el?parseInt(el.value):new Date().getFullYear();}
+function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
+function ga(){const el=document.getElementById('s-an');return el?parseInt(el.value):new Date().getFullYear();}
 function gk(){return gm()+'_'+ga();}
 
 function init(){
-  try{
   // Charger config et codes depuis localStorage
   const svcfg=localStorage.getItem('cdp3_cfg');
   if(svcfg)try{CFG={...CFG_DEF,...JSON.parse(svcfg)};}catch(e){}
@@ -622,7 +635,7 @@ function init(){
   // Remplir les selects d'année dynamiquement (100 ans)
   const now=new Date();
   const curA=now.getFullYear();
-  const anneeIds=['f-an','p-an','p-an-imp','at-annee','pr-an'];
+  const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','pr-an'];
   anneeIds.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
@@ -636,20 +649,11 @@ function init(){
   });
 
   const m=now.getMonth()+1;
-  ['f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
-  ['f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
+  ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
+  ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
   // Charger depuis Firebase puis afficher
-  try{
-    fbLoad(()=>{
-      try{rFact();}
-      catch(e){showSync('❌ rFact: '+e.message,false);console.error(e);}
-    });
-  }catch(e2){
-    showSync('❌ fbLoad: '+e2.message,false);
-    console.error(e2);
-  }
-  }catch(e){showSync('❌ Init: '+e.message,false);console.error(e);}
+  fbLoad(()=>rSaisie());
 }
 function save(){fbSave();}
 
@@ -666,8 +670,9 @@ function showPage(id,btn){
   document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+id).classList.add('active');
   if(btn)btn.classList.add('on');
-  else{const map={factures:0,apercu:0,suivi:1,profs:2,familles:3,attestation:3,reglages:4};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined)bs[map[id]].classList.add('on');}
+  else{const map={saisie:0,factures:1,apercu:1,suivi:2,profs:3,familles:4,attestation:4,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
   document.querySelector('.scroll').scrollTop=0;
+  if(id==='saisie')rSaisie();
   if(id==='factures')rFact();
   if(id==='suivi')rSuivi();
   if(id==='profs')rProfs();
@@ -676,7 +681,10 @@ function showPage(id,btn){
 }
 
 function onMC(){
-  rFact();
+  const m=gm(),a=ga();
+  document.getElementById('f-mois').value=m;
+  document.getElementById('f-an').value=a;
+  rSaisie();
 }
 
 function codeI(nom){
@@ -689,15 +697,12 @@ function genN(idx,m,a,seq){
   // L'index famille garantit l'unicité même si deux familles ont le même seq
   return`${a}/${String(m).padStart(2,'0')}/${String(idx).padStart(3,'0')}`;
 }
-// ── SAISIE (stub - page supprimée, logique dans rFact) ──
+// ── SAISIE ──
 function rSaisie(){
-  rFact();
-  return;
   const key=gk();
   const mois=gm(),annee=ga();
   if(!S.s[key])S.s[key]=[];
   const q=(document.getElementById('ss')?.value||'').toLowerCase();
-  if(!document.getElementById('sl'))return;
   let fams=S.f.map((f,idx)=>({f,idx}));
   if(q)fams=fams.filter(({f})=>f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q)||(f.i||'').toLowerCase().includes(q));
   // Tri : alphabétique dans les deux groupes (avec heures en premier)
@@ -833,17 +838,12 @@ function valSaisie(){
   if(numManuel){s.num=numManuel;}
   else if(lignes.length>0&&!s.num){const seq=S.s[key].filter(s2=>s2.lignes&&s2.lignes.some(l=>l.h>0)&&s2.fi!==idx).length+1;s.num=genN(idx,m,a,seq);}
   else if(lignes.length===0)s.num=null;
-  save();cm('m-saisie');
-  rFact();
+  save();cm('m-saisie');rSaisie();
+  document.getElementById('f-mois').value=m;
+  document.getElementById('f-an').value=a;
 }
 
-function ouvrirNouvelleFacture(){
-  // Ouvre la modal saisie en mode "choisir famille"
-  // On réutilise la liste de l'onglet saisie dans une modal dédiée
-  curIdx=null;
-  document.getElementById('m-choix-fam').classList.add('open');
-  rChoixFam();
-}
+function ouvrirNouvelleFacture(){showPage('saisie');}
 
 function rChoixFam(){
   const q=(document.getElementById('choix-fam-search')?.value||'').toLowerCase();
@@ -864,26 +864,18 @@ function rChoixFam(){
 function effSaisie(){
   const key=gk(),idx=curIdx;
   if(S.s[key]){const i=S.s[key].findIndex(s=>s.fi===idx);if(i>=0)S.s[key].splice(i,1);}
-  save();cm('m-saisie');rFact();
+  save();cm('m-saisie');rSaisie();
 }
 
 // ── FACTURES ──
 function rFact(){
   const m=parseInt(document.getElementById('f-mois').value),a=parseInt(document.getElementById('f-an').value);
   const key=m+'_'+a;
-  // Stats
-  let nb=0,totMois=0,hMois=0,totAn=0,hAn=0;
-  S.f.forEach((f,idx)=>{const s=(S.s[key]||[]).find(s=>s.fi===idx);if(s&&sTotal(s)>0){nb++;totMois+=sMontant(s);hMois+=sTotal(s);}});
-  for(let mm=1;mm<=12;mm++){(S.s[mm+'_'+a]||[]).forEach(s=>{totAn+=sMontant(s);hAn+=sTotal(s);});}
-  const stEl=document.getElementById('st-tot');if(stEl)stEl.textContent=totMois.toFixed(0)+' €';
-  const stAnEl=document.getElementById('st-an');if(stAnEl)stAnEl.textContent=totAn.toFixed(0)+' €';
-  const stHEl=document.getElementById('st-h-mois');if(stHEl)stHEl.textContent=hMois>0?hMois+'h':'';
-  const stHAnEl=document.getElementById('st-h-an');if(stHAnEl)stHAnEl.textContent=hAn>0?hAn+'h':'';
-  // Recherche
-  const q=(document.getElementById('ss')?.value||'').toLowerCase();
+  // (stats dans rSaisie)
+
   const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
     .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'))
-    .filter(s=>{if(!q)return true;const f=S.f[s.fi];return f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q);});
+;
   const c=document.getElementById('fl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture ce mois.<br>Appuie sur "Nouvelle facture" pour saisir.</p></div>';return;}
   c.innerHTML=ss.map(s=>{
