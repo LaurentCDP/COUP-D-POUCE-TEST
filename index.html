@@ -485,14 +485,14 @@ function fbLoad(callback){
         showSync('☁️ Synchronisé',true);
         fbSave();
       }
-      callback();
+      try{callback();}catch(e){console.error('callback error:',e);}
     })
     .catch(()=>{
       const sv=localStorage.getItem('cdp3');
       if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};}catch(e){}
       if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
       showSync('📵 Hors ligne (local)',true);
-      callback();
+      try{callback();}catch(e){console.error('offline callback error:',e);}
     });
 }
 
@@ -679,13 +679,15 @@ function genN(idx,m,a,seq){
   // L'index famille garantit l'unicité même si deux familles ont le même seq
   return`${a}/${String(m).padStart(2,'0')}/${String(idx).padStart(3,'0')}`;
 }
-// ── SAISIE (appelé depuis rFact) ──
+// ── SAISIE (stub - page supprimée, logique dans rFact) ──
 function rSaisie(){
+  rFact();
+  return;
   const key=gk();
   const mois=gm(),annee=ga();
   if(!S.s[key])S.s[key]=[];
   const q=(document.getElementById('ss')?.value||'').toLowerCase();
-  if(!document.getElementById('sl'))return; // page saisie supprimée
+  if(!document.getElementById('sl'))return;
   let fams=S.f.map((f,idx)=>({f,idx}));
   if(q)fams=fams.filter(({f})=>f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q)||(f.i||'').toLowerCase().includes(q));
   // Tri : alphabétique dans les deux groupes (avec heures en premier)
@@ -1564,7 +1566,7 @@ function impData(event){
     if(d.paiements)S.py=d.paiements;
     if(d.cfg){CFG={...CFG_DEF,...d.cfg};localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));}
     if(d.codes){CODES={...CODES_DEF,...d.codes};localStorage.setItem('cdp3_codes',JSON.stringify(CODES));}
-    save();rReglages();rSaisie();alert('✅ Données importées avec succès !');
+    save();rReglages();rFact();alert('✅ Données importées avec succès !');
   }catch(err){alert('Erreur lors de l\'import. Vérifie le fichier.');}};
   reader.readAsText(file);
 }
