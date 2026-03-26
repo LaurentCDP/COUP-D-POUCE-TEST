@@ -612,6 +612,7 @@ function ga(){const el=document.getElementById('f-an');return el?parseInt(el.val
 function gk(){return gm()+'_'+ga();}
 
 function init(){
+  try{
   // Charger config et codes depuis localStorage
   const svcfg=localStorage.getItem('cdp3_cfg');
   if(svcfg)try{CFG={...CFG_DEF,...JSON.parse(svcfg)};}catch(e){}
@@ -639,7 +640,16 @@ function init(){
   ['f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
   // Charger depuis Firebase puis afficher
-  fbLoad(()=>rFact());
+  try{
+    fbLoad(()=>{
+      try{rFact();}
+      catch(e){showSync('❌ rFact: '+e.message,false);console.error(e);}
+    });
+  }catch(e2){
+    showSync('❌ fbLoad: '+e2.message,false);
+    console.error(e2);
+  }
+  }catch(e){showSync('❌ Init: '+e.message,false);console.error(e);}
 }
 function save(){fbSave();}
 
