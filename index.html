@@ -123,10 +123,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <h1>🌿 Coup d'Pouce</h1>
     <div style="font-size:.7rem;opacity:.75;margin-top:1px;">Gestion facturation</div>
   </div>
-  <div style="display:flex;align-items:center;gap:10px;">
-    <button onclick="rafraichir()" style="background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:5px 11px;color:white;font-size:.8rem;font-weight:600;cursor:pointer;">🔄</button>
-    <button onclick="showPage('reglages')" style="background:rgba(255,255,255,.2);border:none;border-radius:20px;padding:5px 11px;color:white;font-size:.8rem;font-weight:600;cursor:pointer;">⚙️</button>
-    <div id="sync-indicator" style="font-size:.72rem;font-weight:600;color:var(--vc);">🔄 Chargement...</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <div id="sync-indicator" style="font-size:.68rem;font-weight:600;color:var(--vc);white-space:nowrap;">🔄</div>
+    <button onclick="rafraichir()" style="background:rgba(255,255,255,.25);border:none;border-radius:22px;padding:7px 14px;color:white;font-size:1rem;font-weight:700;cursor:pointer;">🔄</button>
+    <button onclick="showPage('reglages')" style="background:rgba(255,255,255,.25);border:none;border-radius:22px;padding:7px 14px;color:white;font-size:1rem;font-weight:700;cursor:pointer;">⚙️</button>
   </div>
 </header>
 
@@ -261,8 +261,8 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <div class="field"><label class="sl">IBAN</label><input type="text" id="cfg-iban"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">💶 Tarifs</div>
-      <div class="field"><label class="sl">Prix facturé aux familles (€/h)</label><input type="number" id="cfg-prix-famille" min="0" step="0.5" placeholder="35"></div>
-      <div class="field"><label class="sl">Prix payé aux profs (€/h)</label><input type="number" id="cfg-prix-prof" min="0" step="0.5" placeholder="28"></div>
+      <div class="field"><label class="sl">Prix facturé aux familles (€)</label><input type="number" id="cfg-prix-famille" min="0" step="0.5" placeholder="35"></div>
+      <div class="field"><label class="sl">Prix payé aux profs (€)</label><input type="number" id="cfg-prix-prof" min="0" step="0.5" placeholder="28"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">✍️ Représentant légal (pour attestations)</div>
       <div class="field"><label class="sl">Nom complet du représentant</label><input type="text" id="cfg-rep-nom" placeholder="ex: Mairi OIKONOMOU"></div>
@@ -449,8 +449,10 @@ const JB_URL=`https://api.jsonbin.io/v3/b/${JB_BIN}`;
 function showSync(msg,ok){
   const el=document.getElementById('sync-indicator');
   if(!el)return;
-  el.textContent=msg;
-  el.style.color=ok?'var(--vc)':'var(--warn)';
+  // Compact display
+  const short=ok?(msg.includes('Synchronisé')?'☁️':msg.includes('ligne')?'📵':msg):(msg.includes('Sync')||msg.includes('Charge')?'🔄':msg);
+  el.textContent=short;
+  el.style.color=ok?'rgba(255,255,255,.8)':'var(--warn)';
 }
 
 function fbSave(){
@@ -461,7 +463,7 @@ function fbSave(){
   fetch(JB_URL,{
     method:'PUT',
     headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
-    body:JSON.stringify({f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts:payload.ts})
+    body:JSON.stringify({f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts:payload.ts})
   }).then(r=>r.ok?showSync('☁️ Synchronisé',true):showSync('⚠️ Erreur sync',false))
     .catch(()=>showSync('📵 Hors ligne',false));
 }
@@ -469,7 +471,7 @@ function fbSave(){
 function fbLoad(callback){
   // 1. Afficher immédiatement depuis localStorage
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
   if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
   try{callback();}catch(e){console.error('local callback:',e);}
   // 2. Synchroniser en arrière-plan
@@ -486,7 +488,7 @@ function fbLoad(callback){
         const remoteTs=remote.ts||0;
         if(remoteTs>localTs){
           S.f=remote.f;S.s=remote.s||{};
-          S.py={...(S.py||{}),...(remote.py||{})};
+          S.py={...(S.py||{}),...(remote.py||{})};S.py_parts={...(S.py_parts||{}),...(remote.py_parts||{})};
           S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
           localStorage.setItem('cdp3',JSON.stringify(S));
           localStorage.setItem('cdp3_ts',String(remoteTs));
@@ -607,7 +609,7 @@ const FI=[
   {n:"PASSET",p:"Catherine",rue:"471 route d'aubaygues",cp:"34700",vil:"SOUBES",e:"",tel:"06 43 22 44 46",i:"Denis",pr:35},
 ];
 
-let S={f:[],s:{},py:{},pyp:{},pyp_parts:{}};
+let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{}};
 let curIdx=null,curPayN=null,curAp=null;
 
 function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
@@ -643,7 +645,7 @@ function init(){
 
   // Charger depuis localStorage immédiatement
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
   if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
   rSaisie();
   // Synchroniser avec JSONBin en arrière-plan
@@ -657,7 +659,7 @@ function init(){
         const remoteTs=remote.ts||0;
         if(remoteTs>localTs){
           S.f=remote.f;S.s=remote.s||{};
-          S.py={...(S.py||{}),...(remote.py||{})};
+          S.py={...(S.py||{}),...(remote.py||{})};S.py_parts={...(S.py_parts||{}),...(remote.py_parts||{})};
           S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
           localStorage.setItem('cdp3',JSON.stringify(S));
           localStorage.setItem('cdp3_ts',String(remoteTs));
@@ -765,9 +767,8 @@ function openS(idx){
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
   renderLignes(lignes,f);
   const ppEl=document.getElementById('ms-pp');if(ppEl)ppEl.value=s.pp||CFG.prixProf||28;
-  // Also set default prix famille
-  const lignesEl=document.getElementById('ms-lignes');
-  if(lignesEl){lignesEl.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.value||el.value==='35')el.value=CFG.prixFamille||35;});}
+  // Set default prix famille from CFG
+  setTimeout(()=>{document.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.value||parseFloat(el.value)===35)el.value=CFG.prixFamille||35;});},50);
   document.getElementById('m-saisie').classList.add('open');
   setTimeout(()=>{const el=document.getElementById('ms-lignes').querySelector('input[type=number]');if(el)el.focus();},300);
 }
@@ -777,7 +778,7 @@ function renderLignes(lignes,f){
   c.innerHTML=lignes.map((l,i)=>`
     <div data-ligne="${i}" style="background:var(--bg);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
       ${lignes.length>1?`<button onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>`:''}
-      <div class="field"><label class="sl">Intervenant</label>
+      <div class="field"><label class="sl">Prof</label>
         <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv(l.i||'')}</select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -804,7 +805,7 @@ function ajouterLigne(){
   const div=document.createElement('div');
   div.innerHTML=`<div data-ligne="${n}" style="background:var(--bg);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
     <button onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>
-    <div class="field"><label class="sl">Intervenant</label>
+    <div class="field"><label class="sl">Prof</label>
       <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
@@ -1033,16 +1034,16 @@ function mkPDF(s,f,m,a,tot){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,248,52,0);
+    doc.addImage(pngData,'PNG',79,242,52,0);
   }catch(e){
     // Fallback texte si image échoue
   }
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,273,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,268,{align:'center'});
   return doc;
 }
 
-function dlPDF(){if(!curAp)return;const{s,f,m,a,tot}=curAp;mkPDF(s,f,m,a,tot).save(`Facture_${s.num||f.n}_${MN[m]}${a}.pdf`);}
+function dlPDF(){if(!curAp)return;const{s,f,m,a,tot}=curAp;mkPDF(s,f,m,a,tot).save(`Facture_${MN[m]}${a}_${f.n.replace(/[^A-Za-z0-9]/g,'_')}.pdf`);}
 
 function sendMail(){
   if(!curAp)return;const{s,f,m,a}=curAp;
@@ -1056,7 +1057,7 @@ function expToutPDF(){
   const m=parseInt(document.getElementById('f-mois').value),a=parseInt(document.getElementById('f-an').value);
   const ss=(S.s[m+'_'+a]||[]).filter(s=>sTotal(s)>0);
   if(!ss.length){alert('Aucune facture ce mois-ci.');return;}
-  let i=0;function nx(){if(i>=ss.length)return;const s=ss[i++],f=S.f[s.fi],tot=sMontant(s).toFixed(2);mkPDF(s,f,m,a,tot).save(`Facture_${s.num||f.n}_${MN[m]}${a}.pdf`);setTimeout(nx,900);}
+  let i=0;function nx(){if(i>=ss.length)return;const s=ss[i++],f=S.f[s.fi],tot=sMontant(s).toFixed(2);mkPDF(s,f,m,a,tot).save(`Facture_${MN[m]}${a}_${f.n.replace(/[^A-Za-z0-9]/g,'_')}.pdf`);setTimeout(nx,900);}
   nx();
 }
 
@@ -1103,19 +1104,18 @@ function expProfsXLS(){
 }
 
 function buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf){
-  // Check if there are partial payments stored
   const payments=(S.pyp_parts||{})[profKey]||[];
   const totalPaid=payments.reduce((a,p)=>a+parseFloat(p.montant||0),0);
-  const reste=(parseFloat(totalEur)-totalPaid).toFixed(2);
+  const reste=Math.max(0,parseFloat(totalEur)-totalPaid);
   let html='';
-  if(payments.length){
-    payments.forEach((p,i)=>{
-      html+=`<div style="color:var(--vc);font-size:.78rem;margin-bottom:4px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.moyen||''} · ${p.montant} €
-        <button onclick="annPayProfPartiel('${profKey}',${i})" style="background:none;border:none;color:var(--danger);font-size:.75rem;cursor:pointer;font-weight:700;">↩️ Annuler (${p.montant} €)</button></div>`;
-    });
-  }
-  if(parseFloat(reste)>0.01){
-    html+=`<button class="btn bc bsm" onclick="openPayProf('${profKey}','${nom}',${reste})">💳 Saisir le paiement (${reste} €)</button>`;
+  payments.forEach((p,i)=>{
+    html+=`<div style="color:var(--vc);font-size:.78rem;margin-bottom:4px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.moyen||''} · ${p.montant} €
+      <button onclick="annPayProfPartiel('${profKey}',${i})" style="background:none;border:none;color:var(--danger);font-size:.75rem;cursor:pointer;font-weight:700;">↩️ Annuler (${p.montant} €)</button></div>`;
+  });
+  if(reste>0.01){
+    html+=`<button class="btn bc bsm" onclick="openPayProf('${profKey}','${nom}',${reste.toFixed(2)})">💳 Saisir le paiement (${reste.toFixed(2)} €)</button>`;
+  } else {
+    html+=`<div style="color:var(--vc);font-size:.8rem;font-weight:700;">✅ Soldé</div>`;
   }
   return html;
 }
@@ -1172,9 +1172,12 @@ function rProfsImpaye(){
     });
   }
   // Stats
-  document.getElementById('pr-tot-fam').textContent='—';
-  document.getElementById('pr-tot-prof').textContent='—';
+  document.getElementById('pr-tot-fam').textContent='';
+  document.getElementById('pr-tot-prof').textContent='';
   document.getElementById('pr-marge').textContent=totalImpaye.toFixed(0)+' €';
+  // Rename marge label for impayé mode
+  const margeEl=document.querySelector('#pg-profs .srow .sbox:last-child .l');
+  if(margeEl)margeEl.textContent='Total impayé profs';
   if(!html)c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Tous les profs sont payés !</p></div>';
   else c.innerHTML=html;
 }
@@ -1202,6 +1205,7 @@ function rProfs(){
   document.getElementById('pr-tot-fam').textContent=totFamAn.toFixed(0)+' €';
   document.getElementById('pr-tot-prof').textContent=totProfPaye.toFixed(0)+' €';
   document.getElementById('pr-marge').textContent=(totFamAn-totProfPaye).toFixed(0)+' €';
+  const margeL=document.querySelector('#pg-profs .srow .sbox:last-child .l');if(margeL)margeL.textContent='Marge annuelle';
 
   // Liste par intervenant pour le mois
   const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
@@ -1230,15 +1234,12 @@ function rProfs(){
         <div style="font-weight:800;font-size:1rem;color:var(--v);">👨‍🏫 ${nom}</div>
         <div style="font-weight:800;font-size:1.1rem;color:var(--v);">${totalEur} €</div>
       </div>
-      <div style="font-size:.78rem;color:var(--gris);margin-bottom:8px;">${totalH}h × ${prixProf}€/h</div>
+      <div style="font-size:.78rem;color:var(--gris);margin-bottom:8px;">${totalH}h × ${prixProf} €</div>
       <table style="width:100%;border-collapse:collapse;font-size:.8rem;margin-bottom:10px;">
         <thead><tr style="background:var(--vp);"><th style="padding:5px;text-align:left;">Famille</th><th style="padding:5px;text-align:center;">Heures</th><th style="padding:5px;text-align:right;">Montant</th></tr></thead>
         <tbody>${lignes.map(({l,fi})=>{const f=S.f[fi];return`<tr><td style="padding:4px;">${f?f.n:''}</td><td style="padding:4px;text-align:center;">${l.h}h</td><td style="padding:4px;text-align:right;">${((parseFloat(l.h)||0)*prixProf).toFixed(2)} €</td></tr>`;}).join('')}</tbody>
       </table>
-      ${paye
-        ?buildProfPayDone(profKey,pyp,totalEur,totalH,prixProf)
-        :buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf)
-      }
+      ${buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf)}
     </div>`;
   });
   c.innerHTML=html;
@@ -1248,7 +1249,8 @@ function openPayProf(key,nom,montant){
   curPayProfKey=key;
   document.getElementById('m-pay-prof-titre').textContent='💳 Payer '+nom;
   document.getElementById('pyp-d').value=new Date().toISOString().split('T')[0];
-  document.getElementById('pyp-montant').value=montant;
+  const inp=document.getElementById('pyp-montant');
+  inp.value=montant;inp.max=montant;
   document.getElementById('m-pay-prof').classList.add('open');
 }
 
@@ -1348,32 +1350,50 @@ function mkSuiviItem(s,f,tot,py,paye,m,a){
   const htot=sTotal(s);
   const interv=s.lignes&&s.lignes.length>1?s.lignes.map(l=>l.i).join(', '):s.i||'';
   const partiel=py.st==='partiel';
-  return`<div class="suivi-item ${paye?'paye':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div>${paye?`<div class="sdet" style="color:var(--vc);">✅ ${py.d?new Date(py.d).toLocaleDateString('fr-FR'):''} · ${py.m||''}</div>`:''}</div><div class="smnt">${tot} €</div></div><div class="sact">${!paye?`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 Saisir le paiement</button>`:`<button class="btn bo bxs" onclick="annPy('${s.num}')" style="color:var(--danger);border-color:var(--danger);font-weight:700;">↩️ Annuler le paiement</button>`}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;
-}
+  const parts=(S.py_parts||{})[s.num]||[];
+  const totalPaid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+  const totalMontant=parseFloat(tot);
+  const reste=Math.max(0,totalMontant-totalPaid).toFixed(2);
+  let payBtns='';
+  parts.forEach((p,i)=>{payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${s.num}',${i})" style="background:none;border:none;color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;">↩️(${p.montant}€)</button></div>`;});
+  if(!paye&&parseFloat(reste)>0.01)payBtns+=`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 ${parts.length?'Solde ('+reste+' €)':'Saisir le paiement'}</button>`;
+  return`<div class="suivi-item ${paye?'paye':partiel?'att':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div></div><div class="smnt">${tot} €</div></div><div class="sact">${payBtns}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;}
 
 function openPy(num){
   curPayN=num;
   const s=Object.values(S.s).flat().find(s=>s&&s.num===num);
-  const montant=s?sMontant(s).toFixed(2):'';
+  const totalMontant=s?sMontant(s):0;
+  const payments=(S.py_parts||{})[num]||[];
+  const totalPaid=payments.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+  const reste=Math.max(0,totalMontant-totalPaid).toFixed(2);
   document.getElementById('py-d').value=new Date().toISOString().split('T')[0];
-  document.getElementById('py-montant').value=montant;
+  const inp=document.getElementById('py-montant');
+  inp.value=reste;inp.max=reste;
   document.getElementById('m-pay').classList.add('open');
 }
 function valPay(){
   if(!curPayN)return;
   const montantSaisi=parseFloat(document.getElementById('py-montant').value)||0;
+  if(montantSaisi<=0)return;
   const s=Object.values(S.s).flat().find(s=>s&&s.num===curPayN);
   const montantTotal=s?sMontant(s):0;
-  const estPartiel=montantSaisi>0&&montantSaisi<montantTotal-0.01;
-  S.py[curPayN]={
-    st:estPartiel?'partiel':'payé',
-    d:document.getElementById('py-d').value,
-    m:document.getElementById('py-m').value,
-    m2:montantSaisi.toFixed(2)
-  };
+  if(!S.py_parts)S.py_parts={};
+  if(!S.py_parts[curPayN])S.py_parts[curPayN]=[];
+  S.py_parts[curPayN].push({d:document.getElementById('py-d').value,m:document.getElementById('py-m').value,montant:montantSaisi.toFixed(2)});
+  const totalPaid=S.py_parts[curPayN].reduce((a,p)=>a+parseFloat(p.montant||0),0);
+  const estSolde=totalPaid>=montantTotal-0.01;
+  S.py[curPayN]={st:estSolde?'payé':'partiel',d:document.getElementById('py-d').value,m:document.getElementById('py-m').value,m2:totalPaid.toFixed(2)};
   save();cm('m-pay');rSuivi();rFact();
 }
-function annPy(num){if(!confirm('Annuler ce paiement ?'))return;delete S.py[num];save();rSuivi();rFact();}
+function annPy(num,idx){
+  if(!confirm('Annuler ce paiement ?'))return;
+  if(idx!==undefined&&S.py_parts&&S.py_parts[num]){
+    S.py_parts[num].splice(idx,1);
+    if(S.py_parts[num].length===0){delete S.py_parts[num];delete S.py[num];}
+    else{const tot=S.py_parts[num].reduce((a,p)=>a+parseFloat(p.montant||0),0);const s=Object.values(S.s).flat().find(s=>s&&s.num===num);const mt=s?sMontant(s):0;S.py[num]={...S.py[num],st:tot>=mt-0.01?'payé':'partiel',m2:tot.toFixed(2)};}
+  } else {delete S.py[num];if(S.py_parts)delete S.py_parts[num];}
+  save();rSuivi();rFact();
+}
 function mailDirect(fi,m,a){const s=(S.s[m+'_'+a]||[]).find(s=>s.fi===fi);if(!s)return;const f=S.f[fi];if(!f.e){alert('Pas d\'email renseigné.');return;}const suj=`Facture Coup d'Pouce – ${f.n} ${f.p} – ${MN[m]} ${a}`;const corps=`Bonjour,\n\nVeuillez trouver ci-joint la facture pour les cours du mois de ${MN[m]} ${a}.\n\nMerci de préciser dans le virement : ${f.n} + ${MN[m]}\n\nIBAN : ${CFG.iban}\n\nBien cordialement,\n${CFG.nom}`;window.open(`mailto:${f.e}?subject=${encodeURIComponent(suj)}&body=${encodeURIComponent(corps)}`);}
 
 function expXLS(){
@@ -1469,15 +1489,18 @@ function ouvrirAttestation(idx){
 function calcAttestation(){
   const annee=parseInt(document.getElementById('at-annee').value);
   const idx=curAttestIdx;
-  let totalAnnuel=0;
-  let nbMoisPaye=0;
-  for(let m=1;m<=12;m++){
-    const key=m+'_'+annee;
-    const s=(S.s[key]||[]).find(s=>s.fi===idx);
-    if(!s||!sTotal(s))continue;
-    const py=S.py[s.num]||{};
-    if(py.st==='payé'){totalAnnuel+=sMontant(s);nbMoisPaye++;}
-  }
+  const nomFamille=S.f[idx]?.n;
+  const idxFraterie=S.f.map((ff,i)=>ff.n===nomFamille?i:-1).filter(i=>i>=0);
+  let totalAnnuel=0,nbMoisPaye=0;
+  idxFraterie.forEach(fi=>{
+    for(let m=1;m<=12;m++){
+      const key=m+'_'+annee;
+      const s=(S.s[key]||[]).find(s=>s.fi===fi);
+      if(!s||!sTotal(s))continue;
+      const py=S.py[s.num]||{};
+      if(py.st==='payé'||py.st==='partiel'){totalAnnuel+=sMontant(s);nbMoisPaye++;}
+    }
+  });
   const cesu=parseFloat(document.getElementById('at-cesu').value)||0;
   const recap=document.getElementById('at-recap');
   if(nbMoisPaye===0){
